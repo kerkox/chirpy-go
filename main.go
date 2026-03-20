@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync/atomic"
 )
@@ -23,6 +25,7 @@ func main() {
 	serverMux.HandleFunc("GET /api/healthz", handleHealthz)
 	serverMux.HandleFunc("GET /admin/metrics", cfg.getFileServeHits)
 	serverMux.HandleFunc("POST /admin/reset", cfg.resetFileServeHits)
+	serverMux.HandleFunc("POST /api/validate_chirp", handleValidateChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -30,6 +33,50 @@ func main() {
 	}
 	fmt.Println("Starting server on http://localhost:" + port)
 	server.ListenAndServe()
+}
+
+func handleValidateChirp(w http.ResponseWriter, r *http.Request) {
+	type chirpRequest struct {
+		Body string `json:"body"`
+	}
+	type errorResponse struct {
+		Error string `json:"error"`
+	}
+	type chirpResponse struct {
+		Valid bool `json:"valid"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	chirp := chirpRequest{}
+	err := decoder.Decode(&chirp)
+	if err != nil {
+		log.Printf("Error decoding request body: %s", err)
+		response := errorResponse{Error: "Somehting went wrong"}
+		jsonResponse, err := json.Marshal(response)
+		if err != nil {
+			log.Printf("Error marshalling JSON: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(jsonResponse)
+		return
+	}
+	MAX_CHIRP_LENGTH := 140
+	if len(chirp.Body) > MAX_CHIRP_LENGTH {
+		response := errorResponse{Error: "Chirp is too long"}
+		jsonResponse, _ := json.Marshal(response)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(jsonResponse)
+		return
+	}
+	response := chirpResponse{Valid: true}
+	jsonResponse, _ := json.Marshal(response)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResponse)
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
