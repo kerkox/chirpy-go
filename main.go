@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -43,7 +44,7 @@ func handleValidateChirp(w http.ResponseWriter, r *http.Request) {
 		Error string `json:"error"`
 	}
 	type chirpResponse struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -72,11 +73,25 @@ func handleValidateChirp(w http.ResponseWriter, r *http.Request) {
 		w.Write(jsonResponse)
 		return
 	}
-	response := chirpResponse{Valid: true}
+	cleanChirp := CleanChirpProfaneWords(chirp.Body)
+	response := chirpResponse{CleanedBody: cleanChirp}
 	jsonResponse, _ := json.Marshal(response)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
+}
+
+func CleanChirpProfaneWords(chirp string) string {
+	profaneWords := map[string]bool{"kerfuffle": true, "sharbert": true, "fornax": true}
+	var result strings.Builder
+	for word := range strings.SplitSeq(chirp, " ") {
+		if profaneWords[strings.ToLower(word)] {
+			result.WriteString("**** ")
+		} else {
+			result.WriteString(word + " ")
+		}
+	}
+	return strings.TrimSpace(result.String())
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
