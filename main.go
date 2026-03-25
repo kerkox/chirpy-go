@@ -9,7 +9,9 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/kerkox/chirpy-go/internal/database"
 	_ "github.com/lib/pq"
@@ -40,6 +42,7 @@ func main() {
 	serverMux.HandleFunc("GET /admin/metrics", cfg.getFileServeHits)
 	serverMux.HandleFunc("POST /admin/reset", cfg.resetFileServeHits)
 	serverMux.HandleFunc("POST /api/validate_chirp", handleValidateChirp)
+	serverMux.HandleFunc("POST /api/users", cfg.handleCreateUser)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -47,6 +50,47 @@ func main() {
 	}
 	fmt.Println("Starting server on http://localhost:" + port)
 	server.ListenAndServe()
+}
+
+func (cfg *apiConfig) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	type createUserRequest struct {
+		Email string `json:"email"`
+	}
+	type createUserResponse struct {
+		ID        string `json:"id"`
+		Email     string `json:"email"`
+		CreatedAt string `json:"created_at"`
+		UpdatedAt string `json:"updated_at"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	user := createUserRequest{}
+	err := decoder.Decode(&user)
+	if err != nil {
+		log.Printf("Error decoding request body: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	userDB, err := cfg.dbQueries.CreateUser(r.Context(), database.CreateUserParams{
+		ID:        uuid.New(),
+		Email:     user.Email,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+	if err != nil {
+		log.Printf("Error creating user: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	response := createUserResponse{
+		ID:        userDB.ID.String(),
+		Email:     userDB.Email,
+		CreatedAt: userDB.CreatedAt.String(),
+		UpdatedAt: userDB.UpdatedAt.String(),
+	}
+	jsonResponse, _ := json.Marshal(response)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(jsonResponse)
 }
 
 func handleValidateChirp(w http.ResponseWriter, r *http.Request) {
