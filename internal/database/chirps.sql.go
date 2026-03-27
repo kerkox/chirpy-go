@@ -7,33 +7,29 @@ package database
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 )
 
 const createChirp = `-- name: CreateChirp :one
-INSERT INTO chirps (id, created_at, updated_at, user_id, body)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO chirps (id, created_at, updated_at, body, user_id)
+VALUES (
+    gen_random_uuid(),
+    NOW(),
+    NOW(),
+    $1,
+    $2
+)
 RETURNING id, created_at, updated_at, user_id, body
 `
 
 type CreateChirpParams struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	UserID    uuid.UUID
-	Body      string
+	Body   string
+	UserID uuid.UUID
 }
 
 func (q *Queries) CreateChirp(ctx context.Context, arg CreateChirpParams) (Chirp, error) {
-	row := q.db.QueryRowContext(ctx, createChirp,
-		arg.ID,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.UserID,
-		arg.Body,
-	)
+	row := q.db.QueryRowContext(ctx, createChirp, arg.Body, arg.UserID)
 	var i Chirp
 	err := row.Scan(
 		&i.ID,
@@ -45,12 +41,13 @@ func (q *Queries) CreateChirp(ctx context.Context, arg CreateChirpParams) (Chirp
 	return i, err
 }
 
-const getAllChirpsByAscendingCreatedAt = `-- name: GetAllChirpsByAscendingCreatedAt :many
+const getChirps = `-- name: GetChirps :many
 SELECT id, created_at, updated_at, user_id, body FROM chirps
+ORDER BY created_at ASC
 `
 
-func (q *Queries) GetAllChirpsByAscendingCreatedAt(ctx context.Context) ([]Chirp, error) {
-	rows, err := q.db.QueryContext(ctx, getAllChirpsByAscendingCreatedAt)
+func (q *Queries) GetChirps(ctx context.Context) ([]Chirp, error) {
+	rows, err := q.db.QueryContext(ctx, getChirps)
 	if err != nil {
 		return nil, err
 	}
