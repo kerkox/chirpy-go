@@ -53,6 +53,7 @@ func main() {
 	serverMux.HandleFunc("POST /admin/reset", cfg.resetFileServeHits)
 	serverMux.HandleFunc("POST /api/users", cfg.handleCreateUser)
 	serverMux.HandleFunc("POST /api/chirps", cfg.handleCreateChirp)
+	serverMux.HandleFunc("GET /api/chirps", cfg.handleGetChirps)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -60,6 +61,29 @@ func main() {
 	}
 	fmt.Println("Starting server on http://localhost:" + port)
 	server.ListenAndServe()
+}
+
+func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.dbQueries.GetAllChirpsByAscendingCreatedAt(r.Context())
+	if err != nil {
+		log.Printf("Error getting chirps: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var response []Chirp
+	for _, chirp := range chirps {
+		response = append(response, Chirp{
+			ID:        chirp.ID.String(),
+			UserId:    chirp.UserID.String(),
+			Body:      chirp.Body,
+			CreatedAt: chirp.CreatedAt.String(),
+			UpdatedAt: chirp.UpdatedAt.String(),
+		})
+	}
+	jsonResponse, _ := json.Marshal(response)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResponse)
 }
 
 func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
