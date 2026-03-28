@@ -13,3 +13,7 @@ RETURNING *;
 -- name: GetChirps :many
 SELECT * FROM chirps
 ORDER BY created_at ASC;
+
+-- name: GetChirpById :one
+SELECT * FROM chirps
+where id = $1;

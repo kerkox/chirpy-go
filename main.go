@@ -54,6 +54,7 @@ func main() {
 
 	serverMux.HandleFunc("POST /api/chirps", cfg.handlerChirpsCreate)
 	serverMux.HandleFunc("GET /api/chirps", cfg.handlerChirpsRetrieve)
+	serverMux.HandleFunc("GET /api/chirps/{chirpId}", cfg.handlerChirpGet)
 
 	serverMux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	serverMux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
