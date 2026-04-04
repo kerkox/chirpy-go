@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -43,4 +44,15 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	return uuid.Nil, jwt.ErrTokenInvalidId
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", http.ErrNoCookie
+	}
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		return authHeader[7:], nil
+	}
+	return "", http.ErrNoCookie
 }
