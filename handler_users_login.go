@@ -6,20 +6,21 @@ import (
 	"time"
 
 	"github.com/kerkox/chirpy-go/internal/auth"
+	"github.com/kerkox/chirpy-go/internal/database"
 )
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
 	type loginRequest struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds *int   `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type loginResponse struct {
-		Id        string `json:"id"`
-		CreatedAt string `json:"created_at"`
-		UpdatedAt string `json:"updated_at"`
-		Email     string `json:"email"`
-		Token     string `json:"token"`
+		Id           string `json:"id"`
+		CreatedAt    string `json:"created_at"`
+		UpdatedAt    string `json:"updated_at"`
+		Email        string `json:"email"`
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token,omitempty"`
 	}
 	var req loginRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -41,9 +42,6 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	expiresIn := 3600 // default to 1 hour
-	if req.ExpiresInSeconds != nil && *req.ExpiresInSeconds > 0 && *req.ExpiresInSeconds < 3600 {
-		expiresIn = *req.ExpiresInSeconds
-	}
 
 	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Duration(expiresIn)*time.Second)
 	if err != nil {
@@ -51,12 +49,25 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	refreshToken := auth.MakeRefreshToken()
+	expireRefreshTokenDays := 60 * 24
+	_, err = cfg.dbQueries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		ExpiresAt: time.Now().Add(time.Duration(expireRefreshTokenDays) * time.Hour),
+		UserID:    user.ID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
+		return
+	}
+
 	resp := loginResponse{
-		Id:        user.ID.String(),
-		CreatedAt: user.CreatedAt.String(),
-		UpdatedAt: user.UpdatedAt.String(),
-		Email:     user.Email,
-		Token:     token,
+		Id:           user.ID.String(),
+		CreatedAt:    user.CreatedAt.String(),
+		UpdatedAt:    user.UpdatedAt.String(),
+		Email:        user.Email,
+		Token:        token,
+		RefreshToken: refreshToken,
 	}
 	respondWithJSON(w, http.StatusOK, resp)
 

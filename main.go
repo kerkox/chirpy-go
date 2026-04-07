@@ -67,6 +67,9 @@ func main() {
 	serverMux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	serverMux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
 
+	serverMux.HandleFunc("POST /api/refresh", cfg.handlerRefreshToken)
+	serverMux.HandleFunc("POST /api/revoke", cfg.handlerRevokeToken)
+
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: serverMux,
