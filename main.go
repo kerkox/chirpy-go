@@ -72,6 +72,8 @@ func main() {
 	serverMux.HandleFunc("POST /api/refresh", cfg.handlerRefreshToken)
 	serverMux.HandleFunc("POST /api/revoke", cfg.handlerRevokeToken)
 
+	serverMux.HandleFunc("POST /api/polka/webhooks", cfg.handlerPolkWebhookUserUpgraded)
+
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: serverMux,
