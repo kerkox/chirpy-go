@@ -8,10 +8,23 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/kerkox/chirpy-go/internal/auth"
 	"github.com/kerkox/chirpy-go/internal/database"
 )
 
 func (cfg *apiConfig) handlerPolkWebhookUserUpgraded(w http.ResponseWriter, r *http.Request) {
+
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Error apiKey not found", err)
+		return
+	}
+
+	if apiKey != cfg.apiKey {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Error apiKey: %s not valid", apiKey), err)
+		return
+	}
+
 	type requestPolka struct {
 		Event string `json:"event"`
 		Data  struct {
@@ -20,7 +33,7 @@ func (cfg *apiConfig) handlerPolkWebhookUserUpgraded(w http.ResponseWriter, r *h
 	}
 
 	var req requestPolka
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
 		return

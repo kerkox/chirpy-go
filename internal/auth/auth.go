@@ -64,3 +64,14 @@ func MakeRefreshToken() string {
 	rand.Read(data)
 	return hex.EncodeToString(data)
 }
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", http.ErrNoCookie
+	}
+	if len(authHeader) > 7 && authHeader[:7] == "ApiKey " {
+		return authHeader[7:], nil
+	}
+	return "", http.ErrNoCookie
+}
