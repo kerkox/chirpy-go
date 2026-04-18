@@ -8,24 +8,54 @@ import (
 	"path"
 
 	"github.com/google/uuid"
+	"github.com/kerkox/chirpy-go/internal/database"
 )
 
 func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Request) {
-	dbChirps, err := cfg.dbQueries.GetChirps(r.Context())
+	query := r.URL.Query()
+	query_author_id := query.Get("author_id")
+
+	var dbChirps []database.Chirp
+	var err error
+
+	if query_author_id != "" {
+		authorId, err := uuid.Parse(query_author_id)
+
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Author id invalid not a uuid", err)
+			return
+		}
+		dbChirps, err = cfg.dbQueries.GetChirpsByAuthorId(r.Context(), authorId)
+
+	} else {
+		dbChirps, err = cfg.dbQueries.GetChirps(r.Context())
+	}
+
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
 		return
 	}
 
-	chirps := []Chirp{}
+	indexStart := 0
+	incrementIndex := 1
+	sortDirectionParam := r.URL.Query().Get("sort")
+
+	if sortDirectionParam == "desc" {
+		indexStart = len(dbChirps) - 1
+		incrementIndex = -1
+	}
+
+	chirps := make([]Chirp, len(dbChirps))
+
 	for _, dbChirp := range dbChirps {
-		chirps = append(chirps, Chirp{
+		chirps[indexStart] = Chirp{
 			ID:        dbChirp.ID,
 			CreatedAt: dbChirp.CreatedAt,
 			UpdatedAt: dbChirp.UpdatedAt,
 			UserID:    dbChirp.UserID,
 			Body:      dbChirp.Body,
-		})
+		}
+		indexStart += incrementIndex
 	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
