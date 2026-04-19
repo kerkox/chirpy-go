@@ -12,12 +12,16 @@ RETURNING *;
 
 -- name: GetChirps :many
 SELECT * FROM chirps
-ORDER BY created_at ASC;
+ORDER BY
+  CASE WHEN @sort_direction::text = 'desc' THEN created_at END DESC,
+  CASE WHEN @sort_direction::text != 'desc' THEN created_at END ASC;
 
 -- name: GetChirpsByAuthorId :many
 SELECT * FROM chirps
-WHERE user_id = $1
-ORDER BY created_at ASC;
+WHERE user_id = @user_id
+ORDER BY
+  CASE WHEN @sort_direction::text = 'desc' THEN created_at END DESC,
+  CASE WHEN @sort_direction::text != 'desc' THEN created_at END ASC;
 
 -- name: GetChirpById :one
 SELECT * FROM chirps

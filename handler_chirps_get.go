@@ -15,6 +15,11 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 	query := r.URL.Query()
 	query_author_id := query.Get("author_id")
 
+	sortDirection := query.Get("sort")
+	if sortDirection != "desc" {
+		sortDirection = "asc"
+	}
+
 	var dbChirps []database.Chirp
 	var err error
 
@@ -25,10 +30,13 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 			respondWithError(w, http.StatusBadRequest, "Author id invalid not a uuid", err)
 			return
 		}
-		dbChirps, err = cfg.dbQueries.GetChirpsByAuthorId(r.Context(), authorId)
+		dbChirps, err = cfg.dbQueries.GetChirpsByAuthorId(r.Context(), database.GetChirpsByAuthorIdParams{
+			UserID:        authorId,
+			SortDirection: sortDirection,
+		})
 
 	} else {
-		dbChirps, err = cfg.dbQueries.GetChirps(r.Context())
+		dbChirps, err = cfg.dbQueries.GetChirps(r.Context(), sortDirection)
 	}
 
 	if err != nil {
@@ -36,26 +44,16 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	indexStart := 0
-	incrementIndex := 1
-	sortDirectionParam := r.URL.Query().Get("sort")
-
-	if sortDirectionParam == "desc" {
-		indexStart = len(dbChirps) - 1
-		incrementIndex = -1
-	}
-
 	chirps := make([]Chirp, len(dbChirps))
 
-	for _, dbChirp := range dbChirps {
-		chirps[indexStart] = Chirp{
+	for i, dbChirp := range dbChirps {
+		chirps[i] = Chirp{
 			ID:        dbChirp.ID,
 			CreatedAt: dbChirp.CreatedAt,
 			UpdatedAt: dbChirp.UpdatedAt,
 			UserID:    dbChirp.UserID,
 			Body:      dbChirp.Body,
 		}
-		indexStart += incrementIndex
 	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
